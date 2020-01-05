@@ -139,6 +139,9 @@ export default {
       oscillator.start(0)
       oscillator.stop(this.audioContext.currentTime + duration)
     }
+  },
+  beforeDestroy: function() {
+    this.isPlaying = false
   }
 }
 </script>
