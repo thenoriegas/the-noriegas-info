@@ -160,6 +160,12 @@ export default {
   position: relative;
 }
 
+@media only screen and (max-width: 350px) {
+  .slider-section {
+    margin-top: 20px;
+  }
+}
+
 .duration-slider, .frequency-slider {
   max-width: 250px;
   min-width: 150px;

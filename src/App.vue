@@ -38,12 +38,16 @@ export default {
   },
   methods: {
     updateMaxRandomNoiseGeneratorCount: function() {
+      if (!this.$refs.noiseGeneratorLinks || !this.$refs.noiseGenerators || (Date.now() - this.lastCompletionTime < 100)) {
+        return
+      }
       var noiseGeneratorLinkBottom = this.$refs.noiseGeneratorLinks.offsetTop + this.$refs.noiseGeneratorLinks.offsetHeight
       var firstNoiseGenerator = this.$refs.noiseGenerators[0]
       var verticalCount = Math.floor((window.innerHeight - noiseGeneratorLinkBottom) / firstNoiseGenerator.offsetHeight)
       var horizontalCount = Math.floor(window.innerWidth / firstNoiseGenerator.offsetWidth)
-      this.maxRandomNoiseGeneratorCount = verticalCount * horizontalCount
+      this.maxRandomNoiseGeneratorCount = Math.max(verticalCount * horizontalCount, 1)
       this.randomNoiseGeneratorCount = Math.min(this.randomNoiseGeneratorCount, this.maxRandomNoiseGeneratorCount)
+      this.lastCompletionTime = Date.now()
     }
   },
   mounted: function () {
@@ -84,6 +88,12 @@ body {
   display: inline-block;
   font-size: 48px;
   margin: 16px;
+}
+
+@media only screen and (max-width: 350px) {
+  .ui-icon {
+    font-size: 36px;
+  }
 }
 
 .ui-icon:hover {
