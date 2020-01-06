@@ -4,6 +4,8 @@ Source code for [thenoriegas.info](thenoriegas.info)
 
 ## Build Setup
 
+Missing assets can be found in the following private repo: [https://github.com/thenoriegas/the-noriegas-info-assets](https://github.com/thenoriegas/the-noriegas-info-assets)
+
 ``` bash
 # install dependencies
 npm install
