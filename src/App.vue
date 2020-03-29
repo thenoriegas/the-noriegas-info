@@ -5,6 +5,7 @@
       <a href="https://instagram.com/the_noriegas" target="_blank"><i class="fab fa-instagram ui-icon" /></a>
       <a href="https://github.com/thenoriegas" target="_blank"><i class="fab fa-github ui-icon" /></a>
       <a href="https://noriegas.bandcamp.com" target="_blank"><i class="fab fa-bandcamp ui-icon" /></a>
+      <a href="https://www.youtube.com/channel/UC3BkxxhGH_rgAj92iOmqeYw" target="_blank"><i class="fab fa-youtube ui-icon" /></a>
     </div>
     <div class="icon-links" ref="noiseGeneratorLinks">
       <i class="fa fa-plus ui-icon ui-icon__medium" v-on:click="randomNoiseGeneratorCount += 1" v-if="randomNoiseGeneratorCount < maxRandomNoiseGeneratorCount"></i>
@@ -56,7 +57,7 @@ export default {
   updated: function () {
     this.updateMaxRandomNoiseGeneratorCount()
   }
-}
+};
 </script>
 
 <style>
@@ -92,7 +93,8 @@ body {
 
 @media only screen and (max-width: 350px) {
   .ui-icon {
-    font-size: 36px;
+    font-size: 32px;
+    margin: 12px;
   }
 }
 
