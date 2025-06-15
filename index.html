@@ -1,14 +1,1358 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>The Noriegas</title>
-  <link rel="icon" href="/static/favicon.ico">
-  <meta charset="utf-8"/>
-  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-  <meta name="keywords" content="The Noriegas, noise, noise rock">
-  <meta name="description" content="The Noriegas"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name=keywords content="The Noriegas, noise, noise rock">
+  <meta name=description content="The Noriegas">
+  <meta name=viewport content="width=device-width,initial-scale=1">
+  <title>Modular LFO Grid Synth</title>
+  <link rel="icon" href="static/favicon.ico">
+  <link rel="stylesheet" href="static/css/app.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #181818;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .synth-container {
+      background: #222;
+      padding: 2em 2em 1em 2em;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px #0008;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 900px;
+      margin-top: 2em;
+    }
+    .top-controls {
+      display: inline;
+      align-items: center;
+      gap: 2em;
+      margin-bottom: 1em;
+    }
+    .play-btn, .stop-btn {
+      width: 56px;
+      height: 56px;
+      border: none;
+      border-radius: 10px;
+      font-size: 2.2em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      margin: 0 0.5em;
+      box-shadow: 0 2px 8px #0006;
+      transition: background 0.2s, color 0.2s;
+      position: relative;
+    }
+    .play-btn {
+      background: transparent;
+      color: #fff;
+      border-radius: 10px;
+      border: 2px solid #0c2;
+    }
+    .play-btn svg rect {
+      transition: fill 0.2s, stroke 0.2s;
+    }
+    .play-btn.playing svg rect {
+      fill: #3f8;
+      stroke: #2b6;
+    }
+    .play-btn:not(.playing) svg rect {
+      fill: #1f4;
+      stroke: #0c2;
+    }
+    .play-btn:active {
+      background: transparent;
+    }
+    .stop-btn {
+      background: #f44;
+      color: #fff;
+      border-radius: 10px;
+      border: 2px solid #a00;
+    }
+    .stop-btn:active {
+      background: #a00;
+    }
+    .visuals {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      width: 100%;
+      margin-bottom: 2em;
+      gap: 2em;
+      justify-content: center;
+    }
+    canvas {
+      background: #111;
+      border-radius: 8px;
+      margin-top: 1em;
+      width: 400px;
+      height: 120px;
+      display: flex;
+    }
+    .lfo-grid {
+      display: grid;
+      grid-template-columns: repeat(1, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      gap: 2em;
+      margin-bottom: 2em;
+      margin-left: 3em;
+      width: 100%;
+      justify-items: center;
+      align-items: start;
+      position: relative;
+      min-height: 800px;
+      @media screen and (min-width: 500px) {
+        grid-template-columns: repeat(2, 1fr);
+        grid-template-rows: repeat(4, 1fr);
+        gap: 0;
+      }
+      @media screen and (min-width: 800px) {
+        grid-template-columns: repeat(4, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+      }
+    }
+    .lfo-module {
+      background: #333;
+      border-radius: 10px;
+      padding: 1em 1em 0.5em 1em;
+      width: 220px;
+      min-height: 380px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px #0004;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    .lfo-title {
+      font-weight: bold;
+      color: #0ff;
+      margin-bottom: 0.5em;
+    }
+    .lfo-knobs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1em;
+      justify-content: center;
+      margin-bottom: 0.5em;
+      max-width: 220px;
+    }
+    .knob {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #222;
+      border: 2px solid #444;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0.2em;
+      cursor: pointer;
+      box-shadow: 0 1px 4px #0006;
+      transition: border 0.2s;
+    }
+    .knob-label {
+      font-size: 0.8em;
+      color: #0ff;
+      pointer-events: none;
+      white-space: nowrap;
+      margin-top: 0.2em;
+      text-align: center;
+    }
+    .knob-indicator {
+      position: absolute;
+      width: 4px;
+      height: 18px;
+      background: #0ff;
+      left: 50%;
+      top: 6px;
+      transform-origin: 50% 18px;
+      border-radius: 2px;
+      pointer-events: none;
+    }
+    .knob-radio {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 0.2em;
+    }
+    .radio-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid #888;
+      background: #181818;
+      margin-top: 0.2em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border 0.2s, background 0.2s;
+    }
+    .radio-btn.selected {
+      border: 2px solid #fff;
+      background: #0ff8;
+    }
+    .radio-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #fff;
+      display: none;
+    }
+    .radio-btn.selected .radio-dot {
+      display: block;
+      background: #0ff;
+    }
+    .patch-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    canvas.lfo-oscilloscope {
+      width: 180px !important;
+      height: 80px !important;
+    }
+    .icon-links {
+      text-align: center;
+    }
+
+    .ui-icon {
+      color: #fff;
+      cursor: pointer;
+      display: inline-block;
+      font-size: 48px;
+      margin: 16px;
+    }
+
+    @media only screen and (max-width: 350px) {
+      .ui-icon {
+        font-size: 32px;
+        margin: 12px;
+      }
+    }
+
+    .ui-icon:hover {
+      color: #678ffe;
+    }
+
+    .ui-icon.ui-icon__medium {
+      font-size: 36px;
+    }
+
+    .ui-icon.ui-icon__small {
+      font-size: 18px;
+    }
+
+    .ui-icon.selected {
+      color: #678ffe;
+    }
+
+    /* CSS */
+    .button {
+      appearance: button;
+      backface-visibility: hidden;
+      background-color: #405cf5;
+      border-radius: 6px;
+      border-width: 0;
+      box-shadow: rgba(50, 50, 93, .1) 0 0 0 1px inset,rgba(50, 50, 93, .1) 0 2px 5px 0,rgba(0, 0, 0, .07) 0 1px 1px 0;
+      box-sizing: border-box;
+      color: #fff;
+      cursor: pointer;
+      font-family: -apple-system,system-ui,"Segoe UI",Roboto,"Helvetica Neue",Ubuntu,sans-serif;
+      font-size: 100%;
+      height: 44px;
+      line-height: 1.15;
+      margin: 12px 0 0;
+      outline: none;
+      overflow: hidden;
+      padding: 0 25px;
+      position: relative;
+      text-align: center;
+      text-transform: none;
+      transform: translateZ(0);
+      transition: all .2s,box-shadow .08s ease-in;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+      width: fit-content;
+    }
+
+    .button:disabled {
+      cursor: default;
+    }
+
+    .button:focus {
+      box-shadow: rgba(50, 50, 93, .1) 0 0 0 1px inset, rgba(50, 50, 93, .2) 0 6px 15px 0, rgba(0, 0, 0, .1) 0 2px 2px 0, rgba(50, 151, 211, .3) 0 0 0 4px;
+    }
+
+    .randomize-btn {
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="icon-links">
+    <a href="https://twitter.com/the_noriegas" target="_blank"><i class="fab fa-twitter ui-icon"></i></a>
+    <a href="https://instagram.com/the_noriegas" target="_blank"><i class="fab fa-instagram ui-icon"></i></a>
+    <a href="https://github.com/thenoriegas" target="_blank"><i class="fab fa-github ui-icon"></i></a>
+    <a href="https://noriegas.bandcamp.com" target="_blank"><i class="fab fa-bandcamp ui-icon"></i></a>
+    <a href="https://www.youtube.com/channel/UC3BkxxhGH_rgAj92iOmqeYw" target="_blank"><i class="fab fa-youtube ui-icon"></i></a>
+  </div>
+  <div class="synth-container">
+    <div class="top-controls">
+      <button id="play-btn" class="play-btn" title="Play">
+        <svg width="36" height="36" viewBox="0 0 36 36">
+          <rect x="2" y="2" width="32" height="32" rx="6" stroke-width="2"/>
+          <polygon points="13,10 27,18 13,26" fill="#fff"/>
+        </svg>
+      </button>
+      <button id="stop-btn" class="stop-btn" title="Stop">
+        <svg width="36" height="36" viewBox="0 0 36 36">
+          <rect x="2" y="2" width="32" height="32" rx="6" fill="#f44" stroke="#a00" stroke-width="2"/>
+          <rect x="12" y="12" width="12" height="12" rx="2" fill="#fff"/>
+        </svg>
+      </button>
+      <canvas id="oscilloscope" width="400" height="120"></canvas>
+      <canvas id="spectrum" width="400" height="120"></canvas>
+    </div>
+    <button id="randomize-all" class="button randomize-btn">Randomize Everything</button>
+    <div class="lfo-grid" id="lfo-grid" style="min-height: 500px;">
+      <canvas id="patch-canvas" class="patch-canvas" width="1200" height="500"></canvas>
+    </div>
+  </div>
+  <script>
+    console.log("Script loaded");
+    const oscilloscope = document.getElementById('oscilloscope');
+    const spectrum = document.getElementById('spectrum');
+    const oscCtx = oscilloscope.getContext('2d');
+    const specCtx = spectrum.getContext('2d');
+    // --- LFO and Patch Data ---
+    const LFO_COUNT = 8;
+    const LFO_PARAMS = [
+      'freq','fm','amp','delay','reverb','filter','reson','env','tone'
+    ];
+    const LFO_COLORS = [
+      '#0ff','#f0f','#ff0','#0f0','#f80','#08f','#f44','#4ff'
+    ];
+    const LFO_WAVEFORMS = [
+      'sine', 'triangle', 'square', 'sawtooth', 'ramp', 'sinesaw', 'white', 'pink'
+    ];
+    let connections = [];
+    let lfos = Array.from({length: LFO_COUNT}, (_, i) => {
+      const isNoise = (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink');
+      return {
+        freq: 440,
+        fm: isNoise ? undefined : 0,
+        amp: isNoise ? (Math.random()*0.6 + 0.4) : (Math.random() * 0.8 + 0.1),
+        delay: 0,
+        reverb: 0,
+        filter: isNoise ? undefined : (Math.random() * (6000 - 200) + 200),
+        reson: isNoise ? (Math.random()*0.3) : 0.3,
+        env: isNoise ? 0.3 : Math.random(),
+        tone: isNoise ? 0.5 : undefined,
+        phase: 0,
+        out: 0,
+      };
+    });
+    let lfoRoutes = Array.from({length: LFO_COUNT}, () => '');
+    let lfoRouteNodes = Array.from({length: LFO_COUNT}, () => null);
+    let lfoRouteGains = Array.from({length: LFO_COUNT}, () => ({}));
+    let lfoActive = Array.from({length: LFO_COUNT}, () => true);
+    let isPlaying = false;
+    // --- UI State ---
+    let selectedRadio = null;
+    let isDrawing = false;
+    let drawFrom = null;
+    let patchInProgress = null;
+    let mouseX = 0, mouseY = 0;
+    // --- Randomize Functions ---
+    function randomizeLFOParams(i) {
+      const isNoise = (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink');
+      lfos[i].freq = isNoise ? Math.random() * (8000 - 500) + 500 : Math.random() * (2000 - 20) + 20;
+      if (!isNoise) lfos[i].fm = Math.random() * 0.8 + 0.1;
+      lfos[i].amp = isNoise ? (Math.random()*0.6 + 0.4) : (Math.random() * 0.8 + 0.1);
+      lfos[i].delay = Math.random() * 5;
+      lfos[i].reverb = Math.random();
+      lfos[i].filter = isNoise ? undefined : (Math.random() * (6000 - 200) + 200);
+      lfos[i].reson = isNoise ? Math.random()*0.3 : Math.random();
+      lfos[i].env = isNoise ? 0.3 : Math.random();
+      if (isNoise) lfos[i].tone = Math.random();
+    }
+
+    function randomizeLFORoute(i) {
+      let routeOpts = [];
+      for (let j = 0; j < LFO_COUNT; j++) {
+        if (j === i) continue;
+        for (let p = 0; p < LFO_PARAMS.length; p++) {
+          let param = LFO_PARAMS[p];
+          if ((LFO_WAVEFORMS[j] === 'white' || LFO_WAVEFORMS[j] === 'pink') && param === 'filter') continue;
+          if ((LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && (param === 'fm' || param === 'env')) continue;
+          routeOpts.push(`${j}:${param}`);
+        }
+      }
+      lfoRoutes[i] = routeOpts.length ? routeOpts[Math.floor(Math.random()*routeOpts.length)] : '';
+    }
+
+    function randomizeLFO(i) {
+      randomizeLFOParams(i);
+    }
+
+    function randomizeAll() {
+      for (let i = 0; i < LFO_COUNT; i++) {
+        randomizeLFO(i);
+        randomizeLFORoute(i);
+      }
+      renderLFOs();
+      if (isPlaying) {
+        stopAudio();
+        startAudio();
+      }
+    }
+
+    // --- LFO UI ---
+    const lfoGrid = document.getElementById('lfo-grid');
+
+    function renderLFOs() {
+      console.log("renderLFOs called");
+      lfoGrid.innerHTML = '';
+      for (let i = 0; i < LFO_COUNT; i++) {
+        const lfoDiv = document.createElement('div');
+        lfoDiv.className = 'lfo-module';
+        
+        // Oscilloscope canvas
+        const osc = document.createElement('canvas');
+        osc.width = 120;
+        osc.height = 80;
+        osc.className = 'lfo-oscilloscope';
+        osc.style.display = 'block';
+        osc.style.margin = '0 auto 0.2em auto';
+        lfoDiv.appendChild(osc);
+        
+        // Title with waveform icon
+        if (i === 6) {
+          lfoDiv.innerHTML += `<div class="lfo-title" style="color:#fff">WHITE NOISE</div>`;
+        } else if (i === 7) {
+          lfoDiv.innerHTML += `<div class="lfo-title" style="color:#f8c">PINK NOISE</div>`;
+        } else {
+          lfoDiv.innerHTML += `<div class="lfo-title" style="color:${LFO_COLORS[i%LFO_COLORS.length]}">LFO ${i+1}</div>`;
+        }
+        
+        // Knobs
+        const knobWrap = document.createElement('div');
+        knobWrap.className = 'lfo-knobs';
+        knobWrap.style.display = 'grid';
+        knobWrap.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        knobWrap.style.gap = '1em';
+        let knobCount = 0;
+        
+        for (let p = 0; p < LFO_PARAMS.length; p++) {
+          let param = LFO_PARAMS[p];
+          if ((LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && (param === 'filter' || param === 'env' || param === 'fm')) continue;
+          if (!(LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && param === 'tone') continue;
+          
+          let min=0, max=1, label=param.toUpperCase(), step=0.005;
+          if (param==='freq') { min=20; max=2000; label='FREQ'; step=1; }
+          if (param==='fm') { min=0; max=1; label='FM'; step=0.01; }
+          if (param==='amp') { min=0; max=1; label='AMP'; step=0.01; }
+          if (param==='delay') { min=0; max=5; label='DELAY'; step=0.01; }
+          if (param==='reverb') { min=0; max=1; label='REVERB'; step=0.01; }
+          if (param==='filter') { min=200; max=6000; label='FILTER FREQ.'; step=10; }
+          if (param==='reson') { min=0; max=1; label='RESO'; step=0.01; }
+          if (param==='env') { min=0; max=1; label='ENV'; step=0.01; }
+          if (param==='tone') { min=0; max=1; label='TONE'; step=0.01; }
+          
+          const knobEl = renderKnob(lfos[i][param], min, max, v => {
+            lfos[i][param] = v;
+            if (isPlaying) updateLFOAudio(i);
+          }, label, LFO_COLORS[i%LFO_COLORS.length], i, param);
+          knobWrap.appendChild(knobEl);
+          knobCount++;
+        }
+        
+        // Add placeholders for noise modules
+        if (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') {
+          const targetSlots = 8;
+          while (knobCount < targetSlots) {
+            const ph = document.createElement('div');
+            ph.style.width = '48px';
+            ph.style.height = '80px';
+            knobWrap.appendChild(ph);
+            knobCount++;
+          }
+        }
+        
+        lfoDiv.appendChild(knobWrap);
+        
+        // Randomize button
+        const randBtn = document.createElement('button');
+        randBtn.textContent = 'Randomize';
+        randBtn.style.margin = '0.5em auto 0.5em auto';
+        randBtn.style.display = 'block';
+        randBtn.classList.add('button');
+        randBtn.onclick = () => {
+          randomizeLFO(i);
+          randomizeLFORoute(i);
+          if (isPlaying) {
+            updateLFOAudio(i);
+            setLFORoute(i, lfoRoutes[i]);
+          }
+          renderLFOs();
+        };
+        lfoDiv.appendChild(randBtn);
+        
+        // Routing dropdown
+        const routeWrap = document.createElement('div');
+        routeWrap.style.display = 'flex';
+        routeWrap.style.flexDirection = 'column';
+        routeWrap.style.alignItems = 'center';
+        routeWrap.style.margin = '0.5em 0 0.2em 0';
+        
+        const routeLabel = document.createElement('label');
+        routeLabel.textContent = 'Send Output To:';
+        routeLabel.style.fontSize = '0.9em';
+        routeLabel.style.marginBottom = '0.2em';
+        routeLabel.htmlFor = `lfo-route-${i}`;
+        routeWrap.appendChild(routeLabel);
+        
+        const routeSelect = document.createElement('select');
+        routeSelect.id = `lfo-route-${i}`;
+        routeSelect.style.padding = '0.2em 0.5em';
+        routeSelect.style.borderRadius = '6px';
+        routeSelect.style.fontSize = '1em';
+        routeSelect.style.background = '#222';
+        routeSelect.style.color = '#fff';
+        routeSelect.style.border = '1px solid #444';
+        
+        // Add routing options
+        routeSelect.innerHTML = '<option value="">None</option>';
+        for (let j = 0; j < LFO_COUNT; j++) {
+          if (j === i) continue;
+          for (let p = 0; p < LFO_PARAMS.length; p++) {
+            let param = LFO_PARAMS[p];
+            if ((LFO_WAVEFORMS[j] === 'white' || LFO_WAVEFORMS[j] === 'pink') && param === 'filter') continue;
+            if ((LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && (param === 'fm' || param === 'env')) continue;
+            const opt = document.createElement('option');
+            opt.value = `${j}:${param}`;
+            opt.textContent = `LFO ${j+1} ${param.toUpperCase()}`;
+            opt.style.color = LFO_COLORS[j%LFO_COLORS.length];
+            routeSelect.appendChild(opt);
+          }
+        }
+        
+        routeSelect.value = lfoRoutes[i];
+        routeSelect.onchange = e => {
+          setLFORoute(i, e.target.value);
+        };
+        routeWrap.appendChild(routeSelect);
+        lfoDiv.appendChild(routeWrap);
+        
+        // Play/Stop buttons
+        const playBtn = document.createElement('button');
+        playBtn.className = 'play-btn';
+        playBtn.title = 'Play LFO';
+        playBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 36 36"><rect x="2" y="2" width="32" height="32" rx="6" fill="#1f4" stroke="#0c2" stroke-width="2"/><polygon points="13,10 27,18 13,26" fill="#fff"/></svg>`;
+        playBtn.onclick = () => {
+          if (!isPlaying) return;
+          lfoActive[i] = true;
+          if (lfoGains[i]) lfoGains[i].gain.value = lfos[i].amp;
+          playBtn.style.opacity = '1';
+          stopBtn.style.opacity = '0.4';
+        };
+        
+        const stopBtn = document.createElement('button');
+        stopBtn.className = 'stop-btn';
+        stopBtn.title = 'Stop LFO';
+        stopBtn.innerHTML = `<svg width="24" height="24" viewBox="0 0 36 36"><rect x="2" y="2" width="32" height="32" rx="6" fill="#f44" stroke="#a00" stroke-width="2"/><rect x="12" y="12" width="12" height="12" rx="2" fill="#fff"/></svg>`;
+        stopBtn.onclick = () => {
+          lfoActive[i] = false;
+          if (lfoGains[i]) lfoGains[i].gain.value = 0;
+          playBtn.style.opacity = '0.4';
+          stopBtn.style.opacity = '1';
+        };
+        
+        const btnWrap = document.createElement('div');
+        btnWrap.style.display = 'flex';
+        btnWrap.style.gap = '0.5em';
+        btnWrap.style.justifyContent = 'center';
+        btnWrap.appendChild(playBtn);
+        btnWrap.appendChild(stopBtn);
+        lfoDiv.appendChild(btnWrap);
+        
+        // Set initial button states
+        if (lfoActive[i]) {
+          playBtn.style.opacity = '1';
+          stopBtn.style.opacity = '0.4';
+        } else {
+          playBtn.style.opacity = '0.4';
+          stopBtn.style.opacity = '1';
+        }
+        
+        lfoGrid.appendChild(lfoDiv);
+      }
+      console.log("renderLFOs finished");
+    }
+
+    // --- Global Controls ---
+    document.getElementById('play-btn').onclick = () => {
+      if (!isPlaying) {
+        startAudio();
+      } else {
+        stopAudio();
+        startAudio();
+      }
+    };
+    document.getElementById('stop-btn').onclick = stopAudio;
+    document.getElementById('randomize-all').onclick = randomizeAll;
+
+    // Initialize the grid
+    for (let i = 0; i < LFO_COUNT; i++) {
+      randomizeLFO(i);
+      randomizeLFORoute(i);
+    }
+    renderLFOs();
+    console.log("Initial renderLFOs done");
+    
+    // Initialize UI state
+    updateGlobalPlayStopUI();
+
+    // --- Audio Engine ---
+    let audioCtx = null;
+    let lfoNodes = [];
+    let lfoGains = [];
+    let lfoAnalysers = [];
+    let lfoBuffers = [];
+    let lfoNoiseScripts = [];
+    let lfoNoiseWorklets = [];
+    let lfoMixGain = null;
+    let masterAnalyser = null;
+    let masterCompressor = null;
+
+    async function startAudio() {
+      if (isPlaying) return;
+      
+      try {
+        // Initialize audio context if not already done
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          await audioCtx.resume();
+        }
+
+        // Create master gain and compressor
+        lfoMixGain = audioCtx.createGain();
+        masterCompressor = audioCtx.createDynamicsCompressor();
+        masterAnalyser = audioCtx.createAnalyser();
+        
+        // Set up compressor
+        masterCompressor.threshold.value = -12;
+        masterCompressor.knee.value = 20;
+        masterCompressor.ratio.value = 4;
+        masterCompressor.attack.value = 0.003;
+        masterCompressor.release.value = 0.25;
+        
+        // Set up master analyser
+        masterAnalyser.fftSize = 2048;
+        
+        // Connect master chain
+        lfoMixGain.connect(masterCompressor);
+        masterCompressor.connect(masterAnalyser);
+        masterAnalyser.connect(audioCtx.destination);
+        
+        // Initialize LFOs
+        for (let i = 0; i < LFO_COUNT; i++) {
+          if (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') {
+            // Create noise source
+            const bufferSize = 4096;
+            const noiseScript = audioCtx.createScriptProcessor(bufferSize, 1, 1);
+            lfoNoiseScripts[i] = noiseScript;
+            
+            noiseScript.onaudioprocess = (e) => {
+              const output = e.outputBuffer.getChannelData(0);
+              for (let j = 0; j < bufferSize; j++) {
+                output[j] = Math.random() * 2 - 1;
+              }
+            };
+            
+            // Create filter and gain
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.value = lfos[i].freq;
+            filter.Q.value = lfos[i].reson * 30;
+            
+            const gain = audioCtx.createGain();
+            gain.gain.value = lfoActive[i] ? lfos[i].amp : 0;
+            lfoGains[i] = gain;
+            
+            // Connect noise chain
+            noiseScript.connect(filter);
+            filter.connect(gain);
+            gain.connect(lfoMixGain);
+            
+            lfoNodes[i] = filter;
+          } else {
+            // Create oscillator
+            const osc = createLFOOscillator(audioCtx, lfos[i], i);
+            const gain = audioCtx.createGain();
+            gain.gain.value = lfoActive[i] ? lfos[i].amp : 0;
+            
+            osc.connect(gain);
+            gain.connect(lfoMixGain);
+            
+            lfoNodes[i] = osc;
+            lfoGains[i] = gain;
+            osc.start();
+          }
+          
+          // Create per-LFO analyser
+          const analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 1024;
+          lfoGains[i].connect(analyser);
+          lfoAnalysers[i] = analyser;
+        }
+        
+        // Set up routing
+        for (let i = 0; i < LFO_COUNT; i++) {
+          if (lfoRoutes[i]) {
+            setLFORoute(i, lfoRoutes[i]);
+          }
+        }
+        
+        isPlaying = true;
+        updateGlobalPlayStopUI();
+        startVisualizer();
+      } catch (err) {
+        console.error('Error starting audio:', err);
+      }
+    }
+
+    function stopAudio() {
+      if (!isPlaying) return;
+      
+      // Stop and disconnect all nodes
+      for (let i = 0; i < LFO_COUNT; i++) {
+        if (lfoNodes[i]) {
+          if (lfoNodes[i].stop) {
+            lfoNodes[i].stop();
+          }
+          lfoNodes[i].disconnect();
+          if (lfoNodes[i]._fmOsc) {
+            lfoNodes[i]._fmOsc.stop();
+            lfoNodes[i]._fmOsc.disconnect();
+          }
+        }
+        if (lfoGains[i]) {
+          lfoGains[i].disconnect();
+        }
+        if (lfoNoiseScripts[i]) {
+          lfoNoiseScripts[i].disconnect();
+        }
+      }
+      
+      // Clear arrays
+      lfoNodes = [];
+      lfoGains = [];
+      lfoAnalysers = [];
+      lfoNoiseScripts = [];
+      
+      // Disconnect master chain
+      if (lfoMixGain) lfoMixGain.disconnect();
+      if (masterCompressor) masterCompressor.disconnect();
+      if (masterAnalyser) masterAnalyser.disconnect();
+      
+      isPlaying = false;
+      updateGlobalPlayStopUI();
+      stopVisualizer();
+    }
+
+    function startVisualizer() {
+      function drawOscilloscope() {
+        // Draw master oscilloscope
+        const oscCanvas = document.getElementById('oscilloscope');
+        const oscCtx = oscCanvas.getContext('2d');
+        const width = oscCanvas.width;
+        const height = oscCanvas.height;
+        
+        // Draw individual LFO oscilloscopes
+        const lfoCanvases = document.querySelectorAll('.lfo-oscilloscope');
+        
+        function draw() {
+          if (!isPlaying) return;
+          
+          // Master oscilloscope
+          const masterData = new Uint8Array(masterAnalyser.frequencyBinCount);
+          masterAnalyser.getByteTimeDomainData(masterData);
+          
+          oscCtx.fillStyle = '#111';
+          oscCtx.fillRect(0, 0, width, height);
+          oscCtx.lineWidth = 2;
+          oscCtx.strokeStyle = '#0ff';
+          oscCtx.beginPath();
+          
+          const sliceWidth = width / masterData.length;
+          let x = 0;
+          
+          for (let i = 0; i < masterData.length; i++) {
+            const v = masterData[i] / 128.0;
+            const y = v * height/2;
+            
+            if (i === 0) {
+              oscCtx.moveTo(x, y);
+            } else {
+              oscCtx.lineTo(x, y);
+            }
+            x += sliceWidth;
+          }
+          
+          oscCtx.stroke();
+          
+          // Individual LFO oscilloscopes
+          lfoCanvases.forEach((canvas, i) => {
+            if (!lfoAnalysers[i]) return;
+            
+            const ctx = canvas.getContext('2d');
+            const data = new Uint8Array(lfoAnalysers[i].frequencyBinCount);
+            lfoAnalysers[i].getByteTimeDomainData(data);
+            
+            ctx.fillStyle = '#111';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = LFO_COLORS[i % LFO_COLORS.length];
+            ctx.beginPath();
+            
+            const sliceWidth = canvas.width / data.length;
+            let x = 0;
+            
+            for (let j = 0; j < data.length; j++) {
+              const v = data[j] / 128.0;
+              const y = v * canvas.height/2;
+              
+              if (j === 0) {
+                ctx.moveTo(x, y);
+              } else {
+                ctx.lineTo(x, y);
+              }
+              x += sliceWidth;
+            }
+            
+            ctx.stroke();
+          });
+          
+          requestAnimationFrame(draw);
+        }
+        
+        requestAnimationFrame(draw);
+      }
+      
+      drawOscilloscope();
+    }
+
+    function stopVisualizer() {
+      // Clear master oscilloscope
+      const oscCanvas = document.getElementById('oscilloscope');
+      const oscCtx = oscCanvas.getContext('2d');
+      oscCtx.fillStyle = '#111';
+      oscCtx.fillRect(0, 0, oscCanvas.width, oscCanvas.height);
+      
+      // Clear individual LFO oscilloscopes
+      const lfoCanvases = document.querySelectorAll('.lfo-oscilloscope');
+      lfoCanvases.forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      });
+    }
+
+    // --- AudioWorklet Loader ---
+    let pulseWorkletLoaded = false;
+    let pulseWorkletPromise = null;
+    function loadPulseWorklet(audioCtx) {
+      if (pulseWorkletLoaded) return Promise.resolve();
+      if (pulseWorkletPromise) return pulseWorkletPromise;
+      const pulseWorkletCode = `
+        class PulseOscillatorProcessor extends AudioWorkletProcessor {
+          static get parameterDescriptors() {
+            return [
+              { name: 'frequency', defaultValue: 440, minValue: 0, maxValue: 20000 },
+              { name: 'duty', defaultValue: 0.5, minValue: 0.01, maxValue: 0.99 }
+            ];
+          }
+          constructor() {
+            super();
+            this.phase = 0;
+          }
+          process(inputs, outputs, parameters) {
+            const output = outputs[0][0];
+            const freq = parameters.frequency;
+            const duty = parameters.duty;
+            for (let i = 0; i < output.length; i++) {
+              const f = freq.length > 1 ? freq[i] : freq[0];
+              const d = duty.length > 1 ? duty[i] : duty[0];
+              output[i] = (this.phase < d) ? 1 : -1;
+              this.phase += f / sampleRate;
+              if (this.phase >= 1) this.phase -= 1;
+            }
+            return true;
+          }
+        }
+        registerProcessor('pulse-oscillator', PulseOscillatorProcessor);
+      `;
+      const blob = new Blob([pulseWorkletCode], {type: 'application/javascript'});
+      const url = URL.createObjectURL(blob);
+      pulseWorkletPromise = (async () => {
+        try {
+          await audioCtx.audioWorklet.addModule(url);
+          pulseWorkletLoaded = true;
+        } catch (e) {
+          console.warn('Pulse AudioWorklet failed to load, falling back to OscillatorNode.', e);
+          pulseWorkletLoaded = false;
+        }
+      })();
+      return pulseWorkletPromise;
+    }
+    // --- Audio Routing Update ---
+    function updateAudioRouting() {
+      if (!isPlaying) return;
+      stopAudio();
+      startAudio();
+    }
+    // --- Global play/stop button styling ---
+    function updateGlobalPlayStopUI() {
+      const playBtn = document.getElementById('play-btn');
+      const stopBtn = document.getElementById('stop-btn');
+      if (!playBtn || !stopBtn) return;
+      
+      playBtn.classList.toggle('playing', isPlaying);
+
+      if (isPlaying) {
+        playBtn.style.opacity = '1';
+        stopBtn.style.opacity = '0.4';
+      } else {
+        playBtn.style.opacity = '0.4';
+        stopBtn.style.opacity = '1';
+      }
+    }
+    // Initialize UI state
+    updateGlobalPlayStopUI();
+    // Helper: createImpulseResponse for reverb
+    function createImpulseResponse(audioCtx, duration, decay) {
+      const rate = audioCtx.sampleRate;
+      const length = rate * duration;
+      const impulse = audioCtx.createBuffer(2, length, rate);
+      for (let c = 0; c < 2; c++) {
+        const channel = impulse.getChannelData(c);
+        for (let i = 0; i < length; i++) {
+          channel[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+        }
+      }
+      return impulse;
+    }
+    // Remove AudioWorklet and true PWM code, restore simple OscillatorNode-based PWM proxy
+    // Remove all AudioWorklet loader and async logic
+    // Restore createLFOOscillator to always use OscillatorNode, with PWM as frequency modulation for square/pulse
+    function createLFOOscillator(audioCtx, lfo, lfoIdx) {
+      let osc = audioCtx.createOscillator();
+      let freq = lfo.freq;
+      if (LFO_WAVEFORMS[lfoIdx] === 'sinesaw') {
+        // Create custom periodic wave mixing sine and saw
+        const harmonics = 32;
+        const real = new Float32Array(harmonics);
+        const imag = new Float32Array(harmonics);
+        for (let h = 1; h < harmonics; h++) {
+          // 0.5 sine (only first harmonic) + 0.5 saw (1/h)
+          if (h === 1) imag[h] = 0.5; // sine fundamental
+          imag[h] += 0.5 * (1 / h);
+        }
+        const wave = audioCtx.createPeriodicWave(real, imag, {disableNormalization:false});
+        osc.setPeriodicWave(wave);
+      } else if (LFO_WAVEFORMS[lfoIdx] === 'pulse') {
+        osc.type = 'square';
+      } else if (LFO_WAVEFORMS[lfoIdx] === 'ramp') {
+        osc.type = 'sawtooth';
+      } else {
+        osc.type = LFO_WAVEFORMS[lfoIdx];
+      }
+      osc.frequency.value = freq;
+      // FM
+      // Check if FM is being modulated
+      const isFMModulated = getModSourceForParam(lfoIdx, 'fm') !== null;
+      if (!isFMModulated && lfo.fm > 0.01) {
+        // Use FM knob to control a local sine LFO for FM
+        const fmOsc = audioCtx.createOscillator();
+        fmOsc.type = 'sine';
+        // Map FM knob to LFO frequency (e.g., 1–20 Hz)
+        fmOsc.frequency.value = 1 + lfo.fm * 19;
+        const fmGain = audioCtx.createGain();
+        // FM depth: a musically useful range (e.g., up to 1/2 of base freq)
+        fmGain.gain.value = freq * 0.5 * lfo.fm;
+        fmOsc.connect(fmGain).connect(osc.frequency);
+        fmOsc.start();
+        osc._fmOsc = fmOsc;
+        osc._fmGain = fmGain;
+        osc._fmIsLocal = true;
+      } else if (isFMModulated) {
+        // The routed modulation will be handled by setLFORoute
+        osc._fmIsLocal = false;
+      }
+      return osc;
+    }
+    // In startAudio and restartLFOAudio, use createLFOOscillator directly (not async)
+    function updateLFOAudio(i) {
+      if (!isPlaying) return;
+      const node = lfoNodes[i];
+      const gain = lfoGains[i];
+      if (!node || !gain) return;
+      // For each parameter, if it is being modulated, update the tap gain
+      for (const param of LFO_PARAMS) {
+        const modSrc = getModSourceForParam(i, param);
+        if (modSrc !== null && lfoRouteNodes[modSrc]) {
+          lfoRouteNodes[modSrc].gain.value = lfos[i][param];
+        }
+      }
+      gain.gain.value = lfoActive[i] ? lfos[i].amp : 0;
+      if (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') {
+        if (gain._filter) {
+          gain._filter.frequency.value = lfos[i].freq;
+          gain._filter.Q.value = 0.1 + lfos[i].reson * 4.9;
+        }
+        if (gain._prefilter) {
+          gain._prefilter.frequency.value = lfos[i].freq;
+          gain._prefilter.Q.value = 0.1 + lfos[i].reson * 19.9;
+        }
+        if (gain._toneFilter) {
+          gain._toneFilter.gain.value = (lfos[i].tone - 0.5)*24;
+        }
+      } else {
+        if (node.frequency) node.frequency.value = lfos[i].freq;
+        if (gain._filter) {
+          gain._filter.frequency.value = lfos[i].filter || lfos[i].freq;
+          gain._filter.Q.value = 0.1 + lfos[i].reson * 19.9;
+        }
+        // FM
+        const isFMModulated = getModSourceForParam(i, 'fm') !== null;
+        if (!isFMModulated && node._fmOsc && node._fmGain) {
+          node._fmOsc.frequency.value = 1 + lfos[i].fm * 19;
+          node._fmGain.gain.value = lfos[i].freq * 0.5 * lfos[i].fm;
+        }
+        // If FM is now being modulated, disconnect local FM LFO
+        if (isFMModulated && node._fmOsc && node._fmIsLocal) {
+          try { node._fmOsc.disconnect(); } catch(e){}
+          node._fmOsc = null;
+          node._fmGain = null;
+          node._fmIsLocal = false;
+        }
+      }
+      if (gain._delay) gain._delay.delayTime.value = lfos[i].delay;
+      if (gain._dryGain) gain._dryGain.gain.value = 1 - lfos[i].reverb;
+      if (gain._wetGain) gain._wetGain.gain.value = lfos[i].reverb;
+      // For reverb, update buffer if reverb value changed significantly
+      if (gain._wetGain && gain._wetGain.gain.value !== lfos[i].reverb && gain._wetGain.buffer) {
+        const reverbDur = 2 + 8 * lfos[i].reverb;
+        const reverbDecay = 2.5 + 5 * lfos[i].reverb;
+        gain._wetGain.buffer = createImpulseResponse(audioCtx, reverbDur, reverbDecay);
+      }
+      // Update env depth
+      if (gain._envGain) gain._envGain.gain.value = lfos[i].env * 2000;
+      const g = lfoRouteGains[i][param];
+      if (g) g.gain.value = lfos[i][param];
+    }
+    // --- Visuals ---
+    function drawOsc() {
+      if (!masterAnalyser) return;
+      const W = oscilloscope.width, H = oscilloscope.height;
+      oscCtx.fillStyle = '#000';
+      oscCtx.fillRect(0,0,W,H);
+      // Retro grid
+      oscCtx.strokeStyle = '#023';
+      oscCtx.lineWidth = 1;
+      for (let x = 0; x <= W; x+=40) { oscCtx.beginPath(); oscCtx.moveTo(x,0); oscCtx.lineTo(x,H); oscCtx.stroke(); }
+      for (let y = 0; y <= H; y+=20) { oscCtx.beginPath(); oscCtx.moveTo(0,y); oscCtx.lineTo(W,y); oscCtx.stroke(); }
+      // Waveform
+      if (!masterAnalyser) return;
+      const buffer = new Uint8Array(masterAnalyser.fftSize);
+      masterAnalyser.getByteTimeDomainData(buffer);
+      oscCtx.strokeStyle = '#0f0';
+      oscCtx.lineWidth = 2;
+      oscCtx.beginPath();
+      for (let i = 0; i < W; i++) {
+        const idx = Math.floor(i / W * buffer.length);
+        const v = buffer[idx] / 128.0 - 1.0;
+        const y = H/2 - v*H*0.4; // zoomed-out amplitude
+        if (i === 0) oscCtx.moveTo(i, y); else oscCtx.lineTo(i, y);
+      }
+      oscCtx.stroke();
+    }
+    function drawSpec() {
+      if (!masterAnalyser) return;
+      const W = spectrum.width, H = spectrum.height;
+      specCtx.fillStyle = '#000';
+      specCtx.fillRect(0,0,W,H);
+      // grid
+      specCtx.strokeStyle = '#023';
+      specCtx.lineWidth = 1;
+      for (let x = 0; x <= W; x+=40) { specCtx.beginPath(); specCtx.moveTo(x,0); specCtx.lineTo(x,H); specCtx.stroke(); }
+      for (let y = 0; y <= H; y+=20) { specCtx.beginPath(); specCtx.moveTo(0,y); specCtx.lineTo(W,y); specCtx.stroke(); }
+      if (!masterAnalyser) return;
+      const buffer = new Uint8Array(masterAnalyser.frequencyBinCount);
+      masterAnalyser.getByteFrequencyData(buffer);
+      const barW = 4;
+      for (let i = 0; i < buffer.length; i++) {
+        const val = buffer[i];
+        const h = val / 255 * H * 0.9;
+        const x = i*barW;
+        specCtx.fillStyle = `hsl(${i/ buffer.length*120+180},100%,50%)`;
+        specCtx.fillRect(x, H - h, barW-1, h);
+        if (x > W) break;
+      }
+    }
+
+    function drawLFOOscilloscopes() {
+      for (let i = 0; i < LFO_COUNT; i++) {
+        const osc = document.querySelectorAll('.lfo-oscilloscope')[i];
+        if (!osc || !lfoAnalysers[i]) continue;
+        const ctx = osc.getContext('2d');
+        ctx.clearRect(0,0,osc.width,osc.height);
+        ctx.strokeStyle = LFO_COLORS[i%LFO_COLORS.length];
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        const buffer = new Uint8Array(lfoAnalysers[i].fftSize);
+        lfoAnalysers[i].getByteTimeDomainData(buffer);
+        for (let x = 0; x < osc.width; x++) {
+          const idx = Math.floor(x / osc.width * buffer.length);
+          const v = buffer[idx] / 128.0 - 1.0;
+          const y = osc.height/2 - v*osc.height/2*0.8;
+          if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function mainVisualLoop() {
+      drawOsc();
+      drawSpec();
+      drawLFOOscilloscopes();
+      requestAnimationFrame(mainVisualLoop);
+    }
+    requestAnimationFrame(mainVisualLoop);
+
+    // --- Helper: create noise buffer ---
+    function createNoiseBuffer(type, length, sampleRate) {
+      if (!audioCtx) return null;
+      const buffer = audioCtx.createBuffer(1, length, sampleRate);
+      const data = buffer.getChannelData(0);
+      if (type === 'white') {
+        for (let i = 0; i < length; i++) data[i] = Math.random()*2 - 1;
+      } else if (type === 'pink') {
+        let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+        for (let i = 0; i < length; i++) {
+          const white = Math.random()*2 - 1;
+          b0 = 0.99886 * b0 + white * 0.0555179;
+          b1 = 0.99332 * b1 + white * 0.0750759;
+          b2 = 0.96900 * b2 + white * 0.1538520;
+          b3 = 0.86650 * b3 + white * 0.3104856;
+          b4 = 0.55000 * b4 + white * 0.5329522;
+          b5 = -0.7616 * b5 - white * 0.0168980;
+          const pink = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+          b6 = white * 0.115926;
+          data[i] = pink * 0.11; // gain compensate
+        }
+      }
+      return buffer;
+    }
+
+    // --- Helper: modulation routing ---
+    function getModulationDepth(param, knobValue) {
+      switch(param) {
+        case 'freq': return knobValue * 500;  // max dev +/- 500 Hz
+        case 'amp': return knobValue * 0.5;   // max dev +/- 0.5 gain
+        case 'delay': return knobValue * 2;     // max dev +/- 2s
+        case 'reverb': return knobValue * 0.5;   // max dev +/- 0.5 mix
+        case 'reson': return knobValue * 5;     // max dev +/- 5 Q
+        case 'env': return knobValue * 1000;  // max dev +/- 1000 Hz
+        case 'tone': return knobValue * 12;    // max dev +/- 6dB (since tone is 0..1 -> -0.5..0.5)
+        case 'fm': return knobValue * 200;     // max dev +/- 200 Hz
+        default: return knobValue;
+      }
+    }
+    function setLFORoute(sourceIdx, route) {
+      if (!isPlaying) return;
+      
+      // Disconnect existing route
+      if (lfoRouteNodes[sourceIdx]) {
+        lfoRouteNodes[sourceIdx].disconnect();
+        lfoRouteNodes[sourceIdx] = null;
+      }
+      
+      if (lfoRouteGains[sourceIdx]) {
+        Object.values(lfoRouteGains[sourceIdx]).forEach(gain => {
+          gain.disconnect();
+        });
+        lfoRouteGains[sourceIdx] = {};
+      }
+      
+      // Parse new route
+      if (!route) return;
+      const [destIdx, param] = route.split(':');
+      if (!destIdx || !param) return;
+      
+      // Create modulation gain
+      const modGain = audioCtx.createGain();
+      modGain.gain.value = 1.0;
+      
+      // Connect source to modulation gain
+      lfoGains[sourceIdx].connect(modGain);
+      lfoRouteNodes[sourceIdx] = modGain;
+      
+      // Connect to destination parameter
+      if (param === 'freq') {
+        const freqGain = audioCtx.createGain();
+        freqGain.gain.value = 1000;
+        modGain.connect(freqGain);
+        freqGain.connect(lfoNodes[destIdx].frequency);
+        lfoRouteGains[sourceIdx][param] = freqGain;
+      } else if (param === 'fm') {
+        const fmGain = audioCtx.createGain();
+        fmGain.gain.value = 1.0;
+        modGain.connect(fmGain);
+        fmGain.connect(lfoNodes[destIdx].frequency);
+        lfoRouteGains[sourceIdx][param] = fmGain;
+      } else if (param === 'amp') {
+        modGain.connect(lfoGains[destIdx].gain);
+        lfoRouteGains[sourceIdx][param] = modGain;
+      } else if (param === 'filter') {
+        const filterGain = audioCtx.createGain();
+        filterGain.gain.value = 2000;
+        modGain.connect(filterGain);
+        filterGain.connect(lfoNodes[destIdx].frequency);
+        lfoRouteGains[sourceIdx][param] = filterGain;
+      }
+    }
+
+    function getModSourceForParam(lfoIdx, param) {
+      for (let i = 0; i < LFO_COUNT; i++) {
+        if (lfoRoutes[i] === `${lfoIdx}:${param}`) {
+          return i;
+        }
+      }
+      return null;
+    }
+
+    // --- Knob Rendering ---
+    function renderKnob(val, min, max, onChange, label, color, lfoIdx, param) {
+      const knobWrap = document.createElement('div');
+      knobWrap.style.display = 'flex';
+      knobWrap.style.flexDirection = 'column';
+      knobWrap.style.alignItems = 'center';
+      
+      // Knob
+      const knob = document.createElement('div');
+      knob.className = 'knob';
+      knob.tabIndex = 0;
+      knob.setAttribute('role', 'slider');
+      knob.setAttribute('aria-valuenow', val);
+      knob.setAttribute('aria-valuemin', min);
+      knob.setAttribute('aria-valuemax', max);
+      knob.setAttribute('aria-label', label);
+      if (color) knob.style.borderColor = color;
+      
+      // Indicator
+      const indicator = document.createElement('div');
+      indicator.className = 'knob-indicator';
+      indicator.style.background = color || '#0ff';
+      
+      // Initial position
+      const updateKnobPosition = (value) => {
+        const angle = ((value - min) / (max - min)) * 270 - 135;
+        indicator.style.transform = `translate(-50%, 0) rotate(${angle}deg)`;
+      };
+      updateKnobPosition(val);
+      
+      knob.appendChild(indicator);
+      
+      let dragging = false;
+      let startY = 0;
+      let startVal = val;
+      let currentVal = val;
+      
+      const onDrag = (e) => {
+        if (!dragging) return;
+        
+        let dy = startY - e.clientY;
+        let step = 0.005;
+        if (param === 'freq') step = 1;
+        if (param === 'amp') step = 0.01;
+        
+        let newVal = Math.round((startVal + dy/60 * (max-min)) / step) * step;
+        newVal = Math.min(max, Math.max(min, newVal));
+        
+        if (newVal !== currentVal) {
+          currentVal = newVal;
+          knob.setAttribute('aria-valuenow', newVal);
+          updateKnobPosition(newVal);
+          onChange(newVal);
+          if (isPlaying) updateLFOAudio(lfoIdx);
+        }
+      };
+      
+      const onDragEnd = () => {
+        if (!dragging) return;
+        dragging = false;
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', onDrag);
+        window.removeEventListener('mouseup', onDragEnd);
+      };
+      
+      knob.onmousedown = e => {
+        dragging = true;
+        startY = e.clientY;
+        startVal = currentVal;
+        document.body.style.userSelect = 'none';
+        window.addEventListener('mousemove', onDrag);
+        window.addEventListener('mouseup', onDragEnd);
+      };
+      
+      knob.onkeydown = e => {
+        let step = 0.005;
+        if (param === 'freq') step = 1;
+        if (param === 'amp') step = 0.01;
+        
+        let newVal = currentVal;
+        if (e.key === 'ArrowUp') newVal = Math.min(max, currentVal + step);
+        if (e.key === 'ArrowDown') newVal = Math.max(min, currentVal - step);
+        
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          currentVal = newVal;
+          knob.setAttribute('aria-valuenow', newVal);
+          updateKnobPosition(newVal);
+          onChange(newVal);
+          if (isPlaying) updateLFOAudio(lfoIdx);
+        }
+      };
+      
+      knobWrap.appendChild(knob);
+      
+      // Label
+      const knobLabel = document.createElement('div');
+      knobLabel.className = 'knob-label';
+      knobLabel.textContent = label;
+      knobLabel.style.fontSize = '0.8em';
+      knobLabel.style.marginTop = '0.2em';
+      knobWrap.appendChild(knobLabel);
+      
+      return knobWrap;
+    }
+
+  </script>
 </body>
+</html>
