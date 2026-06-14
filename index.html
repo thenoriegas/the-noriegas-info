@@ -386,6 +386,80 @@
     const LFO_WAVEFORMS = [
       'sine', 'triangle', 'square', 'sawtooth', 'ramp', 'sinesaw', 'white', 'pink'
     ];
+    const MODULE_DEFS = LFO_WAVEFORMS.map((waveform, i) => ({
+      waveform,
+      isNoise: waveform === 'white' || waveform === 'pink',
+      shortName: i === 6 ? 'WN' : i === 7 ? 'PN' : `LFO ${i + 1}`,
+      titleText: i === 6 ? 'WHITE NOISE' : i === 7 ? 'PINK NOISE' : `LFO ${i + 1}`,
+      color: LFO_COLORS[i % LFO_COLORS.length],
+    }));
+    const PARAM_DEFS = {
+      freq: { label: 'FREQ', step: 1, minOsc: 20, maxOsc: 2000, minNoise: 500, maxNoise: 8000 },
+      fm: { label: 'FM', step: 0.01, min: 0, max: 1 },
+      amp: { label: 'AMP', step: 0.01, min: 0, max: 1 },
+      delay: { label: 'DELAY', step: 0.01, min: 0, max: 5 },
+      reverb: { label: 'REVERB', step: 0.01, min: 0, max: 1 },
+      filter: { label: 'FILTER FREQ.', step: 10, min: 200, max: 6000 },
+      reson: { label: 'RESO', step: 0.01, min: 0, max: 1 },
+      env: { label: 'ENV', step: 0.01, min: 0, max: 1 },
+      tone: { label: 'TONE', step: 0.01, min: 0, max: 1 },
+    };
+    const knobUi = Array.from({ length: LFO_COUNT }, () => ({}));
+
+    function isParamVisible(param, moduleIdx) {
+      const mod = MODULE_DEFS[moduleIdx];
+      if (mod.isNoise && (param === 'filter' || param === 'env' || param === 'fm')) {
+        return false;
+      }
+      if (!mod.isNoise && param === 'tone') {
+        return false;
+      }
+      return true;
+    }
+
+    function paramRange(param, moduleIdx) {
+      const def = PARAM_DEFS[param];
+      if (param === 'freq') {
+        const mod = MODULE_DEFS[moduleIdx];
+        return {
+          min: mod.isNoise ? def.minNoise : def.minOsc,
+          max: mod.isNoise ? def.maxNoise : def.maxOsc,
+          step: def.step,
+          label: def.label,
+        };
+      }
+      return { min: def.min, max: def.max, step: def.step, label: def.label };
+    }
+
+    function moduleRouteLabel(moduleIdx, param) {
+      return `${MODULE_DEFS[moduleIdx].shortName} ${PARAM_DEFS[param].label}`;
+    }
+
+    function syncModuleKnobs(moduleIdx) {
+      for (let p = 0; p < LFO_PARAMS.length; p++) {
+        const param = LFO_PARAMS[p];
+        if (!isParamVisible(param, moduleIdx)) {
+          continue;
+        }
+        const ui = knobUi[moduleIdx][param];
+        if (!ui) {
+          continue;
+        }
+        const { min, max } = paramRange(param, moduleIdx);
+        let val = lfos[moduleIdx][param];
+        if (val === undefined) {
+          val = min;
+        }
+        val = Math.min(max, Math.max(min, val));
+        lfos[moduleIdx][param] = val;
+        ui.setValue(val);
+      }
+      const routeSelect = document.getElementById(`lfo-route-${moduleIdx}`);
+      if (routeSelect) {
+        routeSelect.value = lfoRoutes[moduleIdx];
+      }
+    }
+
     let connections = [];
     let lfos = Array.from({length: LFO_COUNT}, (_, i) => {
       const isNoise = (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink');
@@ -415,40 +489,62 @@
     let patchInProgress = null;
     let mouseX = 0, mouseY = 0;
     // --- Randomize Functions ---
+    function randomValue(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
     function randomizeLFOParams(i) {
-      const isNoise = (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink');
-      lfos[i].freq = isNoise ? Math.random() * (8000 - 500) + 500 : Math.random() * (2000 - 20) + 20;
-      if (!isNoise) lfos[i].fm = Math.random() * 0.8 + 0.1;
-      lfos[i].amp = isNoise ? (Math.random()*0.6 + 0.4) : (Math.random() * 0.8 + 0.1);
-      lfos[i].delay = Math.random() * 5;
-      lfos[i].reverb = Math.random();
-      lfos[i].filter = isNoise ? undefined : (Math.random() * (6000 - 200) + 200);
-      lfos[i].reson = isNoise ? Math.random()*0.3 : Math.random();
-      lfos[i].env = isNoise ? 0.3 : Math.random();
-      if (isNoise) lfos[i].tone = Math.random();
+      const mod = MODULE_DEFS[i];
+      for (let p = 0; p < LFO_PARAMS.length; p++) {
+        const param = LFO_PARAMS[p];
+        if (!isParamVisible(param, i)) {
+          lfos[i][param] = undefined;
+          continue;
+        }
+        const { min, max } = paramRange(param, i);
+        if (param === 'amp' && mod.isNoise) {
+          lfos[i][param] = randomValue(0.4, 1.0);
+        } else if (param === 'env' && mod.isNoise) {
+          lfos[i][param] = 0.3;
+        } else {
+          lfos[i][param] = randomValue(min, max);
+        }
+      }
     }
 
     function randomizeLFORoute(i) {
-      let routeOpts = [];
+      const routeOpts = [];
       for (let j = 0; j < LFO_COUNT; j++) {
-        if (j === i) continue;
+        if (j === i) {
+          continue;
+        }
         for (let p = 0; p < LFO_PARAMS.length; p++) {
-          let param = LFO_PARAMS[p];
-          if ((LFO_WAVEFORMS[j] === 'white' || LFO_WAVEFORMS[j] === 'pink') && param === 'filter') continue;
-          if ((LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && (param === 'fm' || param === 'env')) continue;
+          const param = LFO_PARAMS[p];
+          if (!isParamVisible(param, j)) {
+            continue;
+          }
+          if (MODULE_DEFS[i].isNoise && (param === 'fm' || param === 'env')) {
+            continue;
+          }
           routeOpts.push(`${j}:${param}`);
         }
       }
-      lfoRoutes[i] = routeOpts.length ? routeOpts[Math.floor(Math.random()*routeOpts.length)] : '';
+      lfoRoutes[i] = routeOpts.length ? routeOpts[Math.floor(Math.random() * routeOpts.length)] : '';
     }
 
-    function randomizeLFO(i) {
+    function randomizeModule(i) {
       randomizeLFOParams(i);
+      randomizeLFORoute(i);
+      syncModuleKnobs(i);
+      if (isPlaying) {
+        updateLFOAudio(i);
+        setLFORoute(i, lfoRoutes[i]);
+      }
     }
 
     function randomizeAll() {
       for (let i = 0; i < LFO_COUNT; i++) {
-        randomizeLFO(i);
+        randomizeLFOParams(i);
         randomizeLFORoute(i);
       }
       renderLFOs();
@@ -465,6 +561,8 @@
       console.log("renderLFOs called");
       lfoGrid.innerHTML = '';
       for (let i = 0; i < LFO_COUNT; i++) {
+        knobUi[i] = {};
+        const mod = MODULE_DEFS[i];
         const lfoDiv = document.createElement('div');
         lfoDiv.className = 'lfo-module';
         
@@ -477,14 +575,11 @@
         osc.style.margin = '0 auto 0.2em auto';
         lfoDiv.appendChild(osc);
         
-        // Title with waveform icon
-        if (i === 6) {
-          lfoDiv.innerHTML += `<div class="lfo-title" style="color:#fff">WHITE NOISE</div>`;
-        } else if (i === 7) {
-          lfoDiv.innerHTML += `<div class="lfo-title" style="color:#f8c">PINK NOISE</div>`;
-        } else {
-          lfoDiv.innerHTML += `<div class="lfo-title" style="color:${LFO_COLORS[i%LFO_COLORS.length]}">LFO ${i+1}</div>`;
-        }
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'lfo-title';
+        titleDiv.style.color = mod.isNoise ? (i === 6 ? '#fff' : '#f8c') : mod.color;
+        titleDiv.textContent = mod.titleText;
+        lfoDiv.appendChild(titleDiv);
         
         // Knobs
         const knobWrap = document.createElement('div');
@@ -495,31 +590,22 @@
         let knobCount = 0;
         
         for (let p = 0; p < LFO_PARAMS.length; p++) {
-          let param = LFO_PARAMS[p];
-          if ((LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && (param === 'filter' || param === 'env' || param === 'fm')) continue;
-          if (!(LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && param === 'tone') continue;
-          
-          let min=0, max=1, label=param.toUpperCase(), step=0.005;
-          if (param==='freq') { min=20; max=2000; label='FREQ'; step=1; }
-          if (param==='fm') { min=0; max=1; label='FM'; step=0.01; }
-          if (param==='amp') { min=0; max=1; label='AMP'; step=0.01; }
-          if (param==='delay') { min=0; max=5; label='DELAY'; step=0.01; }
-          if (param==='reverb') { min=0; max=1; label='REVERB'; step=0.01; }
-          if (param==='filter') { min=200; max=6000; label='FILTER FREQ.'; step=10; }
-          if (param==='reson') { min=0; max=1; label='RESO'; step=0.01; }
-          if (param==='env') { min=0; max=1; label='ENV'; step=0.01; }
-          if (param==='tone') { min=0; max=1; label='TONE'; step=0.01; }
-          
+          const param = LFO_PARAMS[p];
+          if (!isParamVisible(param, i)) {
+            continue;
+          }
+          const { min, max, step, label } = paramRange(param, i);
           const knobEl = renderKnob(lfos[i][param], min, max, v => {
             lfos[i][param] = v;
             if (isPlaying) updateLFOAudio(i);
-          }, label, LFO_COLORS[i%LFO_COLORS.length], i, param);
-          knobWrap.appendChild(knobEl);
+          }, label, mod.color, i, param, step);
+          knobUi[i][param] = knobEl;
+          knobWrap.appendChild(knobEl.element);
           knobCount++;
         }
         
         // Add placeholders for noise modules
-        if (LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') {
+        if (mod.isNoise) {
           const targetSlots = 8;
           while (knobCount < targetSlots) {
             const ph = document.createElement('div');
@@ -539,13 +625,7 @@
         randBtn.style.display = 'block';
         randBtn.classList.add('button');
         randBtn.onclick = () => {
-          randomizeLFO(i);
-          randomizeLFORoute(i);
-          if (isPlaying) {
-            updateLFOAudio(i);
-            setLFORoute(i, lfoRoutes[i]);
-          }
-          renderLFOs();
+          randomizeModule(i);
         };
         lfoDiv.appendChild(randBtn);
         
@@ -577,13 +657,13 @@
         for (let j = 0; j < LFO_COUNT; j++) {
           if (j === i) continue;
           for (let p = 0; p < LFO_PARAMS.length; p++) {
-            let param = LFO_PARAMS[p];
-            if ((LFO_WAVEFORMS[j] === 'white' || LFO_WAVEFORMS[j] === 'pink') && param === 'filter') continue;
-            if ((LFO_WAVEFORMS[i] === 'white' || LFO_WAVEFORMS[i] === 'pink') && (param === 'fm' || param === 'env')) continue;
+            const param = LFO_PARAMS[p];
+            if (!isParamVisible(param, j)) continue;
+            if (mod.isNoise && (param === 'fm' || param === 'env')) continue;
             const opt = document.createElement('option');
             opt.value = `${j}:${param}`;
-            opt.textContent = `LFO ${j+1} ${param.toUpperCase()}`;
-            opt.style.color = LFO_COLORS[j%LFO_COLORS.length];
+            opt.textContent = moduleRouteLabel(j, param);
+            opt.style.color = MODULE_DEFS[j].color;
             routeSelect.appendChild(opt);
           }
         }
@@ -657,7 +737,7 @@
 
     // Initialize the grid
     for (let i = 0; i < LFO_COUNT; i++) {
-      randomizeLFO(i);
+      randomizeLFOParams(i);
       randomizeLFORoute(i);
     }
     renderLFOs();
@@ -1291,57 +1371,54 @@
     }
 
     // --- Knob Rendering ---
-    function renderKnob(val, min, max, onChange, label, color, lfoIdx, param) {
+    function renderKnob(val, min, max, onChange, label, color, lfoIdx, param, step) {
       const knobWrap = document.createElement('div');
       knobWrap.style.display = 'flex';
       knobWrap.style.flexDirection = 'column';
       knobWrap.style.alignItems = 'center';
       
-      // Knob
       const knob = document.createElement('div');
       knob.className = 'knob';
       knob.tabIndex = 0;
       knob.setAttribute('role', 'slider');
-      knob.setAttribute('aria-valuenow', val);
       knob.setAttribute('aria-valuemin', min);
       knob.setAttribute('aria-valuemax', max);
       knob.setAttribute('aria-label', label);
       if (color) knob.style.borderColor = color;
       
-      // Indicator
       const indicator = document.createElement('div');
       indicator.className = 'knob-indicator';
       indicator.style.background = color || '#0ff';
       
-      // Initial position
       const updateKnobPosition = (value) => {
         const angle = ((value - min) / (max - min)) * 270 - 135;
         indicator.style.transform = `translate(-50%, 0) rotate(${angle}deg)`;
       };
-      updateKnobPosition(val);
-      
-      knob.appendChild(indicator);
       
       let dragging = false;
       let startY = 0;
       let startVal = val;
       let currentVal = val;
       
+      const setValue = (newVal) => {
+        currentVal = Math.min(max, Math.max(min, newVal));
+        startVal = currentVal;
+        knob.setAttribute('aria-valuenow', currentVal);
+        updateKnobPosition(currentVal);
+      };
+      
+      setValue(val ?? min);
+      knob.appendChild(indicator);
+      
       const onDrag = (e) => {
         if (!dragging) return;
         
-        let dy = startY - e.clientY;
-        let step = 0.005;
-        if (param === 'freq') step = 1;
-        if (param === 'amp') step = 0.01;
-        
-        let newVal = Math.round((startVal + dy/60 * (max-min)) / step) * step;
+        const dy = startY - e.clientY;
+        let newVal = Math.round((startVal + dy / 60 * (max - min)) / step) * step;
         newVal = Math.min(max, Math.max(min, newVal));
         
         if (newVal !== currentVal) {
-          currentVal = newVal;
-          knob.setAttribute('aria-valuenow', newVal);
-          updateKnobPosition(newVal);
+          setValue(newVal);
           onChange(newVal);
           if (isPlaying) updateLFOAudio(lfoIdx);
         }
@@ -1365,18 +1442,12 @@
       };
       
       knob.onkeydown = e => {
-        let step = 0.005;
-        if (param === 'freq') step = 1;
-        if (param === 'amp') step = 0.01;
-        
         let newVal = currentVal;
         if (e.key === 'ArrowUp') newVal = Math.min(max, currentVal + step);
         if (e.key === 'ArrowDown') newVal = Math.max(min, currentVal - step);
         
         if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-          currentVal = newVal;
-          knob.setAttribute('aria-valuenow', newVal);
-          updateKnobPosition(newVal);
+          setValue(newVal);
           onChange(newVal);
           if (isPlaying) updateLFOAudio(lfoIdx);
         }
@@ -1384,7 +1455,6 @@
       
       knobWrap.appendChild(knob);
       
-      // Label
       const knobLabel = document.createElement('div');
       knobLabel.className = 'knob-label';
       knobLabel.textContent = label;
@@ -1392,7 +1462,7 @@
       knobLabel.style.marginTop = '0.2em';
       knobWrap.appendChild(knobLabel);
       
-      return knobWrap;
+      return { element: knobWrap, setValue };
     }
 
   </script>
